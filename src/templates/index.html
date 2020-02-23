@@ -2,18 +2,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/stylesheet.css">
+    <link rel="stylesheet" href="static/index.css">
     <title>Document</title>
 </head>
 <body>
-    <div id="search-component">
-        <div id="logo">Sparrow Lite Logo</div>
+    <div id="content-wrapper" class="flex-column-center">
+        <div id="logo-wrapper" class="flex-row-center">
+            <img src="static/logo.png">
+        </div>
         <div>
-            <form action="/search" method="GET">
-                <div id="search-bar">
-                    <input id="input-box" type="text" name="q" placeholder="type words and search">
-                </div>
-                <button>Search</button>
+            <form class="flex-column-center" action="/search" method="GET">
+                    <div class="flex-row-center">
+                        <div id="search-bar">
+                            <input type="text" name="q" placeholder="Enter to Search">
+                        </div>
+                    </div>
+                    <div id="button-wrapper" class="flex-row-center">
+                        <button>Search</button>
+                    </div>
             </form>
         </div>
     </div>
