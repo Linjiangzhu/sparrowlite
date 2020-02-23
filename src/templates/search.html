@@ -6,20 +6,20 @@
     <title>Document</title>
 </head>
 <body>
-    <div id="content-wrapper" class="flex-column-center">
-        <div id="logo-wrapper" class="flex-row-center">
-            <img src="static/logo.png">
+    <div class="inline-flex-row-left" id="content-wrapper">
+        <div id="logo-wrapper">
+            <a href="/"><img src="static/logo.png"></a>
         </div>
-        <div>
-            <form class="flex-column-center" action="/search" method="GET">
-                    <div class="flex-row-center">
-                        <div id="search-bar">
-                            <input type="text">
-                        </div>
+        <div id="search-wrapper">
+            <form class="inline-flex-row-left" action="/search" method="GET">
+                <div>
+                    <div id="search-bar">
+                        <input type="text" name="q" value="{{query}}">
                     </div>
-                    <div id="button-wrapper" class="flex-row-center">
-                        <button>Search</button>
-                    </div>
+                </div>
+                <div id="button-wrapper">
+                    <button>Search</button>
+                </div>
             </form>
         </div>
     </div>

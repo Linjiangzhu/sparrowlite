@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask,render_template, request
 app = Flask(__name__)
 
 @app.route("/")
@@ -7,4 +7,7 @@ def indexHanlder():
 
 @app.route("/search")
 def searchPageHandler():
-    return render_template("search.html")
+    query = request.args.get("q")
+    if query == None:
+        query = ""
+    return render_template("search.html", query=query)
