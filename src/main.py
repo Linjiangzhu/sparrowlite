@@ -1,5 +1,5 @@
 from flask import Flask,render_template, request
-import controller
+import controller, time
 
 app = Flask(__name__)
 
@@ -12,10 +12,15 @@ def searchPageHandler():
     query = request.args.get("q")
     if query == None:
         query = ""
-    return render_template("search.html", query=query)
+    start = time.time()
+    result = controller.get_dummy_result()
+    end = time.time()
+    query_time = round(end - start, 2)
+    length = len(result)
+    return render_template("search.html", query=query, result = result, length=length, query_time = query_time)
 
 @app.route("/cache")
 def cachedPageHandler():
     query = request.args.get("q")
-    html_page = controller.getTestCachePage()
+    html_page = controller.getCachedPage(query)
     return html_page

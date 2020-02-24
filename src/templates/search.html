@@ -23,5 +23,16 @@
             </form>
         </div>
     </div>
+    <div>
+        <div>placeholder result ({{query_time}} seconds)</div>
+    {%for i in range(0, length)%}
+    <div>
+        <div>Title {{result[i].title}}</div>
+        <div>URL {{result[i].url}}</div>
+        <div>Cache_path {{result[i].cache_path}}</div>
+        <div>Content {{result[i].content}}</div>
+    </div>
+    {%endfor%}
+    </div>
 </body>
 </html>
