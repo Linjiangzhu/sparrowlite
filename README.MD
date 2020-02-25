@@ -1,7 +1,7 @@
 # Sparrow Lite -- a micro search engine
 This project is established for UCI CS121 final assignment
 ## Build and run
-A data file is required before you run the flask application. You can either put a complete inverted index build in `./DATA/` or run `python build.py` to directly build inverted index data file from source JSON.
+A data file is required before you run the flask application. You can either put a complete inverted index build in `./DATA/` or run `python build.py` to directly build inverted index data file from source JSON. Also, a built version of data file will be provided in the future. [click here to download](https://www.google.com/drive/)
 
 To install Flask in your python environment, read [Flask Official Installation Guide](https://flask.palletsprojects.com/en/1.1.x/installation/) for more information.
 
@@ -42,3 +42,4 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [ ] posting with word position
 - [ ] anchor words
 - [x] Web or GUI interface
+
