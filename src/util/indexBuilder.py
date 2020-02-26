@@ -104,7 +104,7 @@ class IIDXBuilder:
                 raw = json_obj["content"]
                 text_processor.feed(raw)
                 self.update_dict(buffer_dict, text_processor.getTokenDict(), doc_id)
-                self.doc_dict[file] = doc_id
+                self.doc_dict[doc_id] = os.path.relpath(file, os.getcwd())
 
                 if IIDXBuilder.get_dict_byte(buffer_dict) / 1024 > chunksize:
                     IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, str(chunk_idx)))
@@ -115,7 +115,9 @@ class IIDXBuilder:
 
         if len(buffer_dict.keys()) != 0:
             IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, str(chunk_idx)))
-        with open(os.path.join(outdir, "docid"), "wb") as f:
-            f.write(pickle.dumps(self.doc_dict))
-        with open(os.path.join(outdir, "termid"), "wb") as f:
-            f.write(pickle.dumps(self.term_dict))
+        with open(os.path.join(outdir, "docid"), "w") as f:
+            for k, v in self.doc_dict.items():
+                f.write(f"{k},{v}\n")
+        with open(os.path.join(outdir, "termid"), "w") as f:
+            for k, v in self.term_dict.items():
+                f.write(f"{v},{k}\n")
