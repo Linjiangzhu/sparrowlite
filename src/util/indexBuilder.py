@@ -7,33 +7,18 @@ class IIDXBuilder:
     def __init__(self, dirpath):
         self.dirpath = dirpath
         self.term_dict = {}
-        self.term = set()
+        # self.term = set()
     
-    def update_dict(self, main_dict, sub_dict, docid, term_file):
-        for k, v in sub_dict.items():
-            if k not in self.term:
-                term_id = len(self.term)
-                self.term.add(k)
-                self.term_dict[k] = term_id
-                term_file.write(f"{k},{term_id}\n")
-            else:
-                term_id = self.term_dict[k]
-            main_dict[term_id].append((docid, v))
-    
-    @staticmethod
-    def get_dict_byte(d):
-        size = 0
-        size += sum([sys.getsizeof(k) for k in d.keys()])
-        size += sum([sys.getsizeof(v) for v in d.values()])
-        return size
-
+    # write dict to disk
     @staticmethod
     def write_partial_dict(d, filepath):
         with open(filepath, "w") as f:
             for k, v in sorted(d.items(), key=lambda x: x[0], reverse=False):
                 for docid, score in sorted(v, key=lambda x: x[1], reverse=True):
-                    f.write("{:>5},{:>5},{:>6}\n".format(k, docid, score))
+                    f.write("{:>6},{:>5},{:>6}\n".format(k, docid, score))
 
+    # compare the tf-idf score of two line
+    # if same, compare the term id
     @staticmethod
     def compare_line(l1, l2):
         t1, _, s1 = l1.split(",")
@@ -45,6 +30,7 @@ class IIDXBuilder:
         else:
             return t1 < t2
 
+    # merge two partial posting files
     @staticmethod
     def merge_two(f1path, f2path, outpath):
         f1 = open(f1path, "r")
@@ -71,6 +57,7 @@ class IIDXBuilder:
         f2.close()
         outfile.close()
     
+    # merge all files in the directory
     @staticmethod
     def merge_chunk(outdir):
         data_files = glob.glob(os.path.join(outdir, "*.csv"))
@@ -84,44 +71,75 @@ class IIDXBuilder:
             data_files = glob.glob(os.path.join(outdir, "*.csv"))
             idx += 1
 
+    # build inverted index
     def build_index(self, outdir, chunksize=100000):
         # create folder to hold data
         if not os.path.exists(outdir):
             os.mkdir(outdir)
         
-        chunk_idx = 0
+        # initialize counters and buffer
         doc_id = 0
-        
+        chunk_idx = 0
+        chunk_sum = 0
         root = self.dirpath
         buffer_dict = defaultdict(list)
         text_processor = TextProcessor()
-        chunk_sum = 0
         
+        # prepare docid-path file and term-id file 
         doc_id_file = open(os.path.join(outdir, "docid"), "a+")
         term_id_file = open(os.path.join(outdir, "termid"), "a+")
+
+        # grab json files 
         for dir in os.listdir(root):
             for file in glob.glob(f"{os.path.join(root, dir)}/*.json"):
                 with open(file, encoding="utf-8") as f:
                     json_obj = json.load(f)
                 
+                # extract raw html content
                 raw = json_obj["content"]
+
+                # feed to text processor
                 text_processor.feed(raw)
+
+                # get word-freq dict of this file
                 partial_dict = text_processor.getTokenDict()
-                chunk_sum += len(partial_dict.keys())
 
-                self.update_dict(buffer_dict, partial_dict, doc_id, term_id_file)
+                # iter through dict
+                for k, v in partial_dict.items():
+                    # if buffer dict reach chunksize, write to disk
+                    if chunk_sum >= chunksize:
+                        IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, f"{chunk_idx}.csv"))
+
+                        # empty buffer dict, update counters
+                        buffer_dict = defaultdict(list)
+                        chunk_sum = 0
+                        chunk_idx += 1
+
+                    # update file word-freq dict to buffer dict
+                    if self.term_dict.get(k) == None:
+                        # if word is new, give a new term id, write to term-id file
+                        term_id = len(self.term_dict)
+                        self.term_dict[k] = term_id
+                        term_id_file.write(f"{k},{term_id}\n")
+                    else:
+                        # if not, get term id
+                        term_id = self.term_dict[k]
+
+                    # add to buffer dict, update counter
+                    buffer_dict[term_id].append((doc_id, v))
+                    chunk_sum += 1
+                
+                # write to docid-path file after process token
                 doc_id_file.write(f"{doc_id},{os.path.relpath(file, os.getcwd())}\n")
-                # self.doc_dict[doc_id] = os.path.relpath(file, os.getcwd())
-
-                if chunk_sum > chunksize:
-                    IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, f"{chunk_idx}.csv"))
-                    buffer_dict = defaultdict(list)
-                    chunk_sum = 0
-                    chunk_idx += 1
                 doc_id += 1
+
+                # progress bar
                 print(f"\r{doc_id} files scanned       ", end="")
 
+        # if buffer dict has remainig items, writ to disk
         if len(buffer_dict.keys()) != 0:
             IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, f"{chunk_idx}.csv"))
+        
+        #  safe close files
         doc_id_file.close()
         term_id_file.close()

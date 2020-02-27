@@ -3,6 +3,7 @@ import math
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from collections import defaultdict
+from nltk.stem import PorterStemmer
 
 class TextProcessor:
     def __init__(self):
@@ -23,18 +24,20 @@ class TextProcessor:
 
     def feed(self, content: str):
         self.raw = content
-        self.text = ""
         self.token_dict = defaultdict(float)
-
         soup = BeautifulSoup(self.raw, "html.parser")
+        ps = PorterStemmer()
         visible_html = soup.findAll(text=True)
         visible_text = filter(self.isVisibleTag, visible_html)
-        self.text = u" ".join(t.strip() for t in visible_text)
-
-        for w in re.findall(r"[a-zA-Z0-9']+", self.text):
-            self.token_dict[w.lower()] += 1
+        for t in visible_text:
+            textContent = str(t).strip()
+            if textContent != "":
+                for w in re.findall(r"[a-zA-Z0-9']+", textContent):
+                    self.token_dict[ps.stem(w.lower())] += 1
         for k, v in self.token_dict.items():
             self.token_dict[k] = TextProcessor.calTFScore(v)
+        self.raw = ""
+        self.text = ""
 
     def getTokenDict(self) -> dict:
         return self.token_dict
