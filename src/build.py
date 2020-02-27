@@ -5,4 +5,4 @@ if __name__ == "__main__":
     # builder = IIDXBuilder("../DEV/")
 
     builder.build_index("../DATA/")
-    # IIDXBuilder.merge_chunk("../DATA/")
+    IIDXBuilder.merge_chunk("../DATA/")

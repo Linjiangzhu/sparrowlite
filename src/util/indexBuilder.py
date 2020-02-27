@@ -6,16 +6,16 @@ class IIDXBuilder:
 
     def __init__(self, dirpath):
         self.dirpath = dirpath
-        self.doc_dict = {}
         self.term_dict = {}
         self.term = set()
     
-    def update_dict(self, main_dict, sub_dict, docid):
+    def update_dict(self, main_dict, sub_dict, docid, term_file):
         for k, v in sub_dict.items():
             if k not in self.term:
                 term_id = len(self.term)
                 self.term.add(k)
                 self.term_dict[k] = term_id
+                term_file.write(f"{k},{term_id}\n")
             else:
                 term_id = self.term_dict[k]
             main_dict[term_id].append((docid, v))
@@ -32,7 +32,7 @@ class IIDXBuilder:
         with open(filepath, "w") as f:
             for k, v in sorted(d.items(), key=lambda x: x[0], reverse=False):
                 for docid, score in sorted(v, key=lambda x: x[1], reverse=True):
-                    f.write(f"{k},{docid},{score}\n")
+                    f.write("{:>5},{:>5},{:>6}\n".format(k, docid, score))
 
     @staticmethod
     def compare_line(l1, l2):
@@ -73,18 +73,18 @@ class IIDXBuilder:
     
     @staticmethod
     def merge_chunk(outdir):
-        data_files = glob.glob(os.path.join(outdir, "*"))
+        data_files = glob.glob(os.path.join(outdir, "*.csv"))
         idx = len(data_files)
         while len(data_files) > 1:
             f1p = data_files.pop()
             f2p = data_files.pop()
-            IIDXBuilder.merge_two(f1p, f2p, os.path.join(outdir, str(idx)))
+            IIDXBuilder.merge_two(f1p, f2p, os.path.join(outdir, f"{idx}.csv"))
             os.remove(f1p)
             os.remove(f2p)
-            data_files = glob.glob(os.path.join(outdir, "*"))
+            data_files = glob.glob(os.path.join(outdir, "*.csv"))
             idx += 1
 
-    def build_index(self, outdir, chunksize=4096):
+    def build_index(self, outdir, chunksize=100000):
         # create folder to hold data
         if not os.path.exists(outdir):
             os.mkdir(outdir)
@@ -95,7 +95,10 @@ class IIDXBuilder:
         root = self.dirpath
         buffer_dict = defaultdict(list)
         text_processor = TextProcessor()
-
+        chunk_sum = 0
+        
+        doc_id_file = open(os.path.join(outdir, "docid"), "a+")
+        term_id_file = open(os.path.join(outdir, "termid"), "a+")
         for dir in os.listdir(root):
             for file in glob.glob(f"{os.path.join(root, dir)}/*.json"):
                 with open(file, encoding="utf-8") as f:
@@ -103,21 +106,22 @@ class IIDXBuilder:
                 
                 raw = json_obj["content"]
                 text_processor.feed(raw)
-                self.update_dict(buffer_dict, text_processor.getTokenDict(), doc_id)
-                self.doc_dict[doc_id] = os.path.relpath(file, os.getcwd())
+                partial_dict = text_processor.getTokenDict()
+                chunk_sum += len(partial_dict.keys())
 
-                if IIDXBuilder.get_dict_byte(buffer_dict) / 1024 > chunksize:
-                    IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, str(chunk_idx)))
+                self.update_dict(buffer_dict, partial_dict, doc_id, term_id_file)
+                doc_id_file.write(f"{doc_id},{os.path.relpath(file, os.getcwd())}\n")
+                # self.doc_dict[doc_id] = os.path.relpath(file, os.getcwd())
+
+                if chunk_sum > chunksize:
+                    IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, f"{chunk_idx}.csv"))
                     buffer_dict = defaultdict(list)
+                    chunk_sum = 0
                     chunk_idx += 1
                 doc_id += 1
                 print(f"\r{doc_id} files scanned       ", end="")
 
         if len(buffer_dict.keys()) != 0:
-            IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, str(chunk_idx)))
-        with open(os.path.join(outdir, "docid"), "w") as f:
-            for k, v in self.doc_dict.items():
-                f.write(f"{k},{v}\n")
-        with open(os.path.join(outdir, "termid"), "w") as f:
-            for k, v in self.term_dict.items():
-                f.write(f"{v},{k}\n")
+            IIDXBuilder.write_partial_dict(buffer_dict, os.path.join(outdir, f"{chunk_idx}.csv"))
+        doc_id_file.close()
+        term_id_file.close()
