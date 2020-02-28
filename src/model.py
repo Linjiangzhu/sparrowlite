@@ -1,6 +1,7 @@
 import json, os
 from bs4 import BeautifulSoup
 from bs4.element import Comment
+from platform import platform
 
 class PresentPage:
     def __init__(self, title: str, url: str, fpath: str, content: str):
@@ -58,6 +59,7 @@ class DB:
         self.term_dict = {}
         self.doc_dict = {}
         self.fidx = {}
+        self.seek_bock_size = 0
         self.line_size = 0
 
         with open(os.path.join(self.dir, "termid"), "r") as f:
@@ -78,6 +80,11 @@ class DB:
         with open(os.path.join(self.dir, "out.csv"), "r") as f:
             line = f.readline()
             self.line_size = len(line.encode("utf-8"))
+        
+        self.seek_bock_size = self.line_size
+        if platform() == "Windows":
+            self.seek_bock_size += 1
+        
 
     # return list of document in which single query word is
     def get(self, w: str) -> list:
@@ -89,8 +96,10 @@ class DB:
         # print("line size:", self.line_size)
         # print(self.line_size * start)
         with open(os.path.join(self.dir, "out.csv"), "r") as f:
-            f.seek(start * (self.line_size + 1))
+            # f.seek(start * (self.line_size + 1))
+            f.seek(start * (self.line_size + 0))
             raw = f.read(length * (self.line_size))
+
         for line in raw.splitlines():
             termid, docid, score = line.split(",")
             result.append(self.doc_dict[docid.strip()])
@@ -101,12 +110,13 @@ class DB:
         start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
         raw = ""
         result = []
+
         with open(os.path.join(self.dir, "out.csv"), "r") as f:
-            f.seek(start * (self.line_size + 1))
-            raw = f.read(length * (self.line_size))
+            f.seek(start * self.seek_bock_size)
+            raw = f.read(length * self.line_size)
         for line in raw.splitlines():
             termid, docid, score = [e.strip() for e in line.split(",")]
-            result.append((docid, termid, folat(score))
+            result.append((docid, termid, float(score)))
         return result
     
     def merge_lists(self, lists: [list]) -> list:
