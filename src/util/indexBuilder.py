@@ -153,7 +153,9 @@ class IIDXBuilder:
                     chunk_sum += 1
                 
                 # write to docid-path file after process token
-                doc_id_file.write(f"{doc_id},{os.path.relpath(file, os.getcwd())}\n")
+                # doc_id_file.write(f"{doc_id},{os.path.relpath(file, os.getcwd())}\n")
+                web_url = json_obj["url"]
+                doc_id_file.write(f"{doc_id},{web_url}\n")
                 doc_id += 1
 
                 # progress bar

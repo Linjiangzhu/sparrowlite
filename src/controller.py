@@ -10,20 +10,37 @@ def getCachedPage(fpath: str) -> str:
     with open(fpath) as f:
         data = json.loads(f.read())
 
-def getQuery(q :str) -> list:
+def getSingleQuery(q :str) -> list:
     word_stem = ps.stem(q)
     result = []
     freader = FileProcesser()
     for f in db.get(word_stem):
-        freader.feed(f)
+        # freader.feed(f)
+        # result.append(PresentPage(
+        #     title = freader.getTitle(),
+        #     url = freader.getURL(),
+        #     fpath = f,
+        #     content = freader.getContent()
+        # ))
         result.append(PresentPage(
-            title = freader.getTitle(),
-            url = freader.getURL(),
-            fpath = f,
-            content = freader.getContent()
+            title = "",
+            url = f,
+            fpath = "",
+            content = ""
         ))
     return result
 
+def getQuery(query_string: str) -> list:
+    words_stem = [ps.stem(q) for q in query_string.split()]
+    result = []
+    for f in db.select(words_stem):
+        result.append(PresentPage(
+            title = "",
+            url = f,
+            fpath = "",
+            content = ""
+        ))
+    return result
 
 # these function is only for test
 def getTestCachePage() -> str:

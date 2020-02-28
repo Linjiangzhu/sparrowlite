@@ -25,8 +25,7 @@ src
 ### Stage 2
 - [ ] multi query
 ### Stage 3
-- [ ] token stemming
-- [ ] stop words
+- [x] token stemming
 - [ ] weight of words in title,\<strong>, and heading
 - [ ] a complete search engine
 ### Extra credit

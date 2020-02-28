@@ -50,12 +50,11 @@ class FileProcesser:
         return self.content
 
 class DB:
-
-    def __init__(self, dir):
+    def __init__(self, dir: str):
         self.dir = dir
         self.load()
     
-    def load(self): 
+    def load(self) -> None: 
         self.term_dict = {}
         self.doc_dict = {}
         self.fidx = {}
@@ -80,7 +79,8 @@ class DB:
             line = f.readline()
             self.line_size = len(line.encode("utf-8"))
 
-    def get(self, w):
+    # return list of document in which single query word is
+    def get(self, w: str) -> list:
         term_idx = self.term_dict[w]
         start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
         raw = ""
@@ -95,4 +95,29 @@ class DB:
             termid, docid, score = line.split(",")
             result.append(self.doc_dict[docid.strip()])
         return result
-            
+    
+    def find(self, w: str) -> list:
+        term_idx = self.term_dict[w]
+        start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
+        raw = ""
+        result = []
+        with open(os.path.join(self.dir, "out.csv"), "r") as f:
+            f.seek(start * (self.line_size + 1))
+            raw = f.read(length * (self.line_size))
+        for line in raw.splitlines():
+            termid, docid, score = [e.strip() for e in line.split(",")]
+            result.append((docid, termid, folat(score))
+        return result
+    
+    def merge_lists(self, lists: [list]) -> list:
+        print(lists)
+        raise OSError
+
+    # return list of document in which multiple query words are
+    def select(self, querys: list) -> list:
+        result_list = []
+        for query in querys:
+            if self.term_dict.get(query) != None:
+                result_list.append(self.find(query))
+        merged = self.merge_lists(result_list)
+        return [self.doc_dict[id] for id in merged]

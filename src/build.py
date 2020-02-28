@@ -5,9 +5,9 @@ if __name__ == "__main__":
     cp = ConfigParser()
     cp.read("config.ini")
 
-    read_dir = cp["database"]["websites_dir"]
-    write_dir = cp["database"]["database_dir"]
-    ifmerge = cp["database"].getboolean("merge_chunk")
+    read_dir = cp["DATABASE"]["websites_dir"]
+    write_dir = cp["DATABASE"]["database_dir"]
+    ifmerge = cp["DATABASE"].getboolean("merge_chunk")
 
     builder = IIDXBuilder(read_dir)
     builder.build_index(write_dir)
