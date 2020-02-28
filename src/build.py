@@ -1,8 +1,16 @@
 from util.indexBuilder import IIDXBuilder
+from configparser import ConfigParser
 
 if __name__ == "__main__":
-    # builder = IIDXBuilder("../ANALYST/")
-    builder = IIDXBuilder("../DEV/")
+    cp = ConfigParser()
+    cp.read("config.ini")
 
-    builder.build_index("../DATA/")
-    # IIDXBuilder.merge_chunk("../DATA/")
+    read_dir = cp["database"]["websites_dir"]
+    write_dir = cp["database"]["database_dir"]
+    ifmerge = cp["database"].getboolean("merge_chunk")
+
+    builder = IIDXBuilder(read_dir)
+    builder.build_index(write_dir)
+    if ifmerge:
+        IIDXBuilder.merge_chunk(write_dir)
+    IIDXBuilder.build_forward_index(write_dir)

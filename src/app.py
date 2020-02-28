@@ -13,7 +13,7 @@ def searchPageHandler():
     if query == None:
         query = ""
     start = time.time()
-    result = controller.get_dummy_result()
+    result = controller.getQuery(query)
     end = time.time()
     query_time = round(end - start, 2)
     length = len(result)

@@ -1,13 +1,27 @@
-import os, sys, json, glob, pickle
+import os, sys, json, glob, pickle, heapq
 from collections import defaultdict
 from util.textProcessor import TextProcessor
+
+class Posting:
+    def __init__(self, val, fid):
+        self.val = val
+        self.fid = fid
+
+    def __lt__(self, other) -> bool:
+        t1, _, s1 = self.val.split(",")
+        t2, _, s2 = other.val.split(",")
+        s1 = float(s1)
+        s2 = float(s2)
+        if t1 == t2:
+            return s1 >= s2
+        else:
+            return t1 < t2
 
 class IIDXBuilder:
 
     def __init__(self, dirpath):
         self.dirpath = dirpath
         self.term_dict = {}
-        # self.term = set()
     
     # write dict to disk
     @staticmethod
@@ -17,59 +31,68 @@ class IIDXBuilder:
                 for docid, score in sorted(v, key=lambda x: x[1], reverse=True):
                     f.write("{:>6},{:>5},{:>6}\n".format(k, docid, score))
 
-    # compare the tf-idf score of two line
-    # if same, compare the term id
-    @staticmethod
-    def compare_line(l1, l2):
-        t1, _, s1 = l1.split(",")
-        t2, _, s2 = l2.split(",")
-        s1 = float(s1)
-        s2 = float(s2)
-        if t1 == t2:
-            return s1 >= s2
-        else:
-            return t1 < t2
-
-    # merge two partial posting files
-    @staticmethod
-    def merge_two(f1path, f2path, outpath):
-        f1 = open(f1path, "r")
-        f2 = open(f2path, "r")
-        outfile = open(outpath, "w")
-        line_a = f1.readline().rstrip()
-        line_b = f2.readline().rstrip()
-        while line_a != "" and line_b != "":
-            if IIDXBuilder.compare_line(line_a, line_b):
-                outfile.write(line_a + '\n')
-                line_a = f1.readline().rstrip()
-            else:
-                outfile.write(line_b + '\n')
-                line_b = f2.readline().rstrip()
-        if line_a != "":
-            outfile.write(line_a + '\n')
-            for line in f1.readlines():
-                outfile.write(line)
-        if line_b != "":
-            outfile.write(line_b + '\n')
-            for line in f2.readlines():
-                outfile.write(line)
-        f1.close()
-        f2.close()
-        outfile.close()
-    
     # merge all files in the directory
     @staticmethod
     def merge_chunk(outdir):
-        data_files = glob.glob(os.path.join(outdir, "*.csv"))
-        idx = len(data_files)
-        while len(data_files) > 1:
-            f1p = data_files.pop()
-            f2p = data_files.pop()
-            IIDXBuilder.merge_two(f1p, f2p, os.path.join(outdir, f"{idx}.csv"))
-            os.remove(f1p)
-            os.remove(f2p)
-            data_files = glob.glob(os.path.join(outdir, "*.csv"))
-            idx += 1
+        line_count = 0
+        partial_files = glob.glob(os.path.join(outdir, "*.csv"))
+        file_table = [open(f, "r") for f in partial_files]
+        q = []
+        for i in range(len(file_table)):
+            line = file_table[i].readline()
+            if line != "":
+                heapq.heappush(q, Posting(line.rstrip(), i))
+        final_merge = open(os.path.join(outdir, "out.csv"), "a+")
+        print()
+        while len(q) > 0:
+            obj = heapq.heappop(q)
+            final_merge.write(f"{obj.val}\n")
+            line_count += 1
+            line = file_table[obj.fid].readline()
+            if line != "":
+                heapq.heappush(q, Posting(line.rstrip(), obj.fid))
+            else:
+                file_table[obj.fid].close()
+        print("\r{:>6} lines write to output csv".format(line_count),end="")
+        
+        # safe close open files
+        final_merge.close()
+        for of in file_table:
+            if not of.closed:
+                of.close()
+
+    # a forward index for retrieval document list of term from disk
+    @staticmethod
+    def build_forward_index(outdir: str) -> None:
+        iidx_file = os.path.join(outdir, "out.csv")
+        if not os.path.exists(iidx_file):
+            return
+        fidx_file = os.path.join(outdir, "fidx.csv")
+        line_cnt = 0
+        term_cnt = 0
+        prev = ""
+        line_width = ""
+
+        outfile = open(fidx_file, "w")
+
+        with open(iidx_file, "r") as f:
+            line = f.readline()
+            prev = line.split(",")[0].strip()
+            line_width = len(line)
+            outfile.write("{},0,".format(prev))
+        
+        with open(iidx_file, "r") as infile:
+            for line in infile:
+                curr = line.split(",")[0].strip()
+                if curr != prev:
+                    outfile.write("{}\n{},{},".format(term_cnt, curr, line_cnt))
+                    prev = curr
+                    term_cnt = 0
+                term_cnt += 1
+                line_cnt += 1
+        outfile.write("{}\n".format(term_cnt))
+        outfile.close()
+
 
     # build inverted index
     def build_index(self, outdir, chunksize=100000):

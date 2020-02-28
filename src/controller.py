@@ -1,6 +1,37 @@
 import os, json
-from model import PresentPage, FileProcesser
+from model import PresentPage, FileProcesser, DB
+from nltk.stem import PorterStemmer
 
+db = DB("../DATA/")
+ps = PorterStemmer()
+
+
+def getCachedPage(fpath: str) -> str:
+    with open(fpath) as f:
+        data = json.loads(f.read())
+
+def getQuery(q :str) -> list:
+    word_stem = ps.stem(q)
+    result = []
+    freader = FileProcesser()
+    for f in db.get(word_stem):
+        freader.feed(f)
+        result.append(PresentPage(
+            title = freader.getTitle(),
+            url = freader.getURL(),
+            fpath = f,
+            content = freader.getContent()
+        ))
+    return result
+
+
+# these function is only for test
+def getTestCachePage() -> str:
+    with open("../ANALYST/www_cs_uci_edu/3eca9c89f2d386807742af7f4f1f566cbc46e75ebd7baa16f05fc8a3b9e0acb2.json") as f:
+        data = json.loads(f.read())
+    return data["content"]
+
+    return data["content"]
 def get_dummy_result() -> list:
     dummy = [
         "../ANALYST/www_cs_uci_edu/ff6386a56527801874c4fa418c3467f6062dcc82c0ea7dbcb5d5b773e847e05b.json",
@@ -20,12 +51,15 @@ def get_dummy_result() -> list:
 
     return result
 
-# this function is only for test
-def getTestCachePage() -> str:
-    with open("../ANALYST/www_cs_uci_edu/3eca9c89f2d386807742af7f4f1f566cbc46e75ebd7baa16f05fc8a3b9e0acb2.json") as f:
-        data = json.loads(f.read())
-    return data["content"]
-def getCachedPage(fpath: str) -> str:
-    with open(fpath) as f:
-        data = json.loads(f.read())
-    return data["content"]
+def get_dummy_result_two(w):
+    result = []
+    freader = FileProcesser()
+    for f in db.get(w):
+        freader.feed(f)
+        result.append(PresentPage(
+            title = freader.getTitle(),
+            url = freader.getURL(),
+            fpath = f,
+            content = freader.getContent()
+        ))
+    return result

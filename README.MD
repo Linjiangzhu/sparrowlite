@@ -60,7 +60,9 @@ flask run --host=127.0.0.1 --port=3000
 ```
 The program will listen and serve the application at localhost on port 3000. Visit http://localhost:3000 in your browser to see the web page.
 ## Known Issues
-- [ ] need to rewrite the function to merge partial data files using heapq
+- [x] need to rewrite the function to merge partial data files using heapq
 - [ ] ugly retrieval result styling
 - [x] stemming
-- [ ] use config.ini to set crawled website directory and output directory
+- [x] use config.ini to set crawled website directory and output directory
+- [x] implement forword idx of inverted idx for retrieval docuements
+- [ ] return just url for stage 2, not path

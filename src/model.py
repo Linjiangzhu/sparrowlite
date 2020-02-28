@@ -1,4 +1,4 @@
-import json
+import json, os
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 
@@ -48,4 +48,51 @@ class FileProcesser:
 
     def getContent(self) -> str:
         return self.content
+
+class DB:
+
+    def __init__(self, dir):
+        self.dir = dir
+        self.load()
+    
+    def load(self): 
+        self.term_dict = {}
+        self.doc_dict = {}
+        self.fidx = {}
+        self.line_size = 0
+
+        with open(os.path.join(self.dir, "termid"), "r") as f:
+            for line in f:
+                k, v = line.strip().split(",")
+                self.term_dict[k] = v
+
+        with open(os.path.join(self.dir, "docid"), "r") as f:
+            for line in f:
+                k, v = line.strip().split(",")
+                self.doc_dict[k] = v
+
+        with open(os.path.join(self.dir, "fidx.csv"), "r") as f:
+            for line in f:
+                k, start, length = line.strip().split(",")
+                self.fidx[k] = (start, length)
         
+        with open(os.path.join(self.dir, "out.csv"), "r") as f:
+            line = f.readline()
+            self.line_size = len(line.encode("utf-8"))
+
+    def get(self, w):
+        term_idx = self.term_dict[w]
+        start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
+        raw = ""
+        result = []
+        # print(start, length)
+        # print("line size:", self.line_size)
+        # print(self.line_size * start)
+        with open(os.path.join(self.dir, "out.csv"), "r") as f:
+            f.seek(start * (self.line_size + 1))
+            raw = f.read(length * (self.line_size))
+        for line in raw.splitlines():
+            termid, docid, score = line.split(",")
+            result.append(self.doc_dict[docid.strip()])
+        return result
+            
