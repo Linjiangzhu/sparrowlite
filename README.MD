@@ -38,7 +38,16 @@ src
 ## Build and run
 A data file is required before you run the flask application. You can either put a complete inverted index build in `./DATA/` or run `python build.py` to directly build inverted index data file from source JSON. Also, a built version of data file will be provided in the future. [click here to download](https://www.google.com/drive/)
 
-To install Flask in your python environment, read [Flask Official Installation Guide](https://flask.palletsprojects.com/en/1.1.x/installation/) for more information.
+Install dependencies:
+
+Python 2
+```bash
+pip install -r src/package/requirements.txt
+```
+Python 3
+```bash
+pip3 install -r src/package/requirements.txt
+```
 
 To run the application you are required to set your `FLASK_APP` environment variable.
 
@@ -64,4 +73,6 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [x] stemming
 - [x] use config.ini to set crawled website directory and output directory
 - [x] implement forword idx of inverted idx for retrieval docuements
-- [ ] return just url for stage 2, not path
+- [x] return just url for stage 2, not path
+- [x] flx disk seek difference on windows and mac/unix-like
+- [ ] implement complex tuple intersection algorithm
