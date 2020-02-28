@@ -36,7 +36,16 @@ src
 - [ ] anchor words
 - [x] Web or GUI interface
 ## Build and run
-A data file is required before you run the flask application. You can either put a complete inverted index build in `./DATA/` or run `python build.py` to directly build inverted index data file from source JSON. Also, a built version of data file will be provided in the future. [click here to download](https://www.google.com/drive/)
+You need to specify where the source data directory and where to put processed data in `src/config.ini`
+
+```ini
+[DATABASE]
+WEBSITES_DIR = ../ANALYST/ # dir where your raw source files locate
+DATABASE_DIR = ../DATA/    # output dir of your data   
+MERGE_CHUNK  = YES         # do not change this line
+```
+
+
 
 Install dependencies:
 
