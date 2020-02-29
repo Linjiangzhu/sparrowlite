@@ -23,7 +23,7 @@ src
 - [x] Implement a inverted index
 - [x] posting include tf-idf score
 ### Stage 2
-- [ ] multi query
+- [x] multi query
 ### Stage 3
 - [x] token stemming
 - [ ] weight of words in title,\<strong>, and heading
@@ -84,4 +84,5 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [x] implement forword idx of inverted idx for retrieval docuements
 - [x] return just url for stage 2, not path
 - [x] flx disk seek difference on windows and mac/unix-like
-- [ ] implement complex tuple intersection algorithm
+- [x] implement complex tuple intersection algorithm
+- [ ] slow or false implementation of cosine similarity
