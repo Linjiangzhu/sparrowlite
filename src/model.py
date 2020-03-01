@@ -119,6 +119,9 @@ class DB:
         if system() == "Windows":
             self.seek_bock_size += 1
         
+        print(f"[Data Info]")
+        print(f"term: {len(self.term_dict)}\ndoc:{len(self.doc_dict)}\n")
+        
 
     # return list of document in which single query word is
     def get(self, w: str) -> [str]:
@@ -144,13 +147,14 @@ class DB:
         start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
         raw = ""
         result = []
+        idf = len(self.doc_dict) / length
 
         with open(os.path.join(self.dir, "out.csv"), "r") as f:
             f.seek(start * self.seek_bock_size)
             raw = f.read(length * self.line_size)
         for line in raw.splitlines():
             termid, docid, score = [e.strip() for e in line.split(",")]
-            result.append((docid, termid, float(score)))
+            result.append((docid, termid, float(score) * idf))
         result = sorted(result, key=lambda x: x[0], reverse=False)
         return result
 
@@ -200,7 +204,7 @@ class DB:
         return result
 
     # return list of document in which multiple query words are
-    def select(self, querys: list, size=5) -> [str]:
+    def select(self, querys: list, size=10) -> [str]:
         result_list = []
         for query in querys:
             if self.term_dict.get(query) != None:

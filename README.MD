@@ -26,8 +26,9 @@ src
 - [x] multi query
 ### Stage 3
 - [x] token stemming
-- [ ] weight of words in title,\<strong>, and heading
+- [x] weight of words in title,\<strong>, and heading
 - [ ] a complete search engine
+- [ ] less than 300ms response
 ### Extra credit
 - [ ] duplicate and near duplicate pages
 - [ ] page rank
@@ -86,3 +87,4 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [x] flx disk seek difference on windows and mac/unix-like
 - [x] implement complex tuple intersection algorithm
 - [ ] slow or false implementation of cosine similarity
+- [ ] use Simhash to remove near duplicates
