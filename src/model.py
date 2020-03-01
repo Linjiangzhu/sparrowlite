@@ -103,7 +103,10 @@ class DB:
 
         with open(os.path.join(self.dir, "docid"), "r") as f:
             for line in f:
-                k, v = line.strip().split(",")
+                strip_l = line.strip()
+                split = strip_l.find(",")
+                k, v = strip_l[:split], strip_l[split + 1:]
+                    # k, v = line.strip().split(",")
                 self.doc_dict[k] = v
 
         with open(os.path.join(self.dir, "fidx.csv"), "r") as f:
@@ -143,6 +146,8 @@ class DB:
         return result
     
     def find(self, w: str) -> [(str, str, float)]:
+        if self.term_dict.get(w) == None:
+            return []
         term_idx = self.term_dict[w]
         start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
         raw = ""

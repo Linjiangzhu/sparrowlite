@@ -37,6 +37,8 @@ src
 - [ ] anchor words
 - [x] Web or GUI interface
 ## Build and run
+Download the processed data files [from here](https://github.com/Linjiangzhu/sparrowlite/releases/download/0.0.1alpha/DATA.zip), unzip to the same directory where you place this project.
+
 You need to specify where the source data directory and where to put processed data in `src/config.ini`
 
 ```ini
@@ -88,3 +90,4 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [x] implement complex tuple intersection algorithm
 - [ ] slow or false implementation of cosine similarity
 - [ ] use Simhash to remove near duplicates
+- [x] fix "," ValueError when parsing docid csv

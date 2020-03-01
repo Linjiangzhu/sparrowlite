@@ -62,7 +62,7 @@ class TextProcessor:
                 self.token_dict[ps.stem(w.lower())] += 5
 
         # handle title
-        if soup.title != None:
+        if soup.title != None and soup.title.string != None:
             for w in re.findall(r"[a-zA-Z0-9']+", soup.title.string):
                 self.token_dict[ps.stem(w.lower())] += 6
 
