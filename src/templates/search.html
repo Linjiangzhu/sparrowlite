@@ -24,13 +24,10 @@
         </div>
     </div>
     <div>
-        <div>placeholder result ({{query_time}} seconds)</div>
+        <div>{{length}} results in ({{query_time}} ms)</div>
     {%for i in range(0, length)%}
     <div>
-        <div>Title {{result[i].title}}</div>
-        <div>URL {{result[i].url}}</div>
-        <div>Cache_path {{result[i].cache_path}}</div>
-        <div>Content {{result[i].content}}</div>
+        <div><a href={{result[i].url}} target="_blank">{{result[i].url}}</a></div>
     </div>
     {%endfor%}
     </div>

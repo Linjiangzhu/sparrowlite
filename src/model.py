@@ -4,7 +4,7 @@ from numpy.linalg import norm
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from platform import system
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from sklearn.metrics.pairwise import cosine_similarity
 
 class PresentPage:
@@ -56,20 +56,30 @@ class FileProcesser:
 
 # QueryDoc = namedtuple("QueryDoc", "docid termlist")
 class QueryDoc:
-    def __init__(self, docid: str, termlist: [(str, float)]):
+    def __init__(self, docid: str, termlist: [(str, float)], querys: [str]):
         self.docid = docid
         self.termlist = termlist
+        self.querys = querys
+        self.cosine_sim = QueryDoc.cal_cosine_similarity(self)
+        self.cumulative = QueryDoc.cal_cumulate_score(self)
+        self.score = self.cumulative * self.cosine_sim
+
     def __lt__(self, other) -> bool:
-        return QueryDoc.cal_cumulate_score(self) > QueryDoc.cal_cumulate_score(other)
+        # return QueryDoc.cal_cumulate_score(self) > QueryDoc.cal_cumulate_score(other)
         # return QueryDoc.cal_cosine_similarity(self) > QueryDoc.cal_cosine_similarity(other)
+        # return self.cosine_sim > other.cosine_sim
+        # return np.tanh(self.cumulative) * self.cosine_sim > np.tanh(other.cumulative) * other.cosine_sim
+        return self.score > other.score
     
     def __repr__(self) -> str:
-        return  "{" + "doc :{}, cumulative: {}, cosine sim: {}".format(
-            self.docid, QueryDoc.cal_cumulate_score(self), QueryDoc.cal_cosine_similarity(self)
+        return  "{" + "doc :{}, cumulative: {}, cosine sim: {}, rank score{}".format(
+            self.docid, QueryDoc.cal_cumulate_score(self), QueryDoc.cal_cosine_similarity(self), self.score
         ) + "}"
     
     def __str__(self) -> str:
-        return "{" + f"docid: {self.docid}" + "}"
+        return  "{" + "doc :{}, cumulative: {}, cosine sim: {}, rank score{}".format(
+            self.docid, QueryDoc.cal_cumulate_score(self), QueryDoc.cal_cosine_similarity(self), self.score
+        ) + "}"
 
     @staticmethod
     def cal_cumulate_score(doc) -> float:
@@ -77,12 +87,46 @@ class QueryDoc:
 
     @staticmethod
     def cal_cosine_similarity(doc) -> float:
-        sorted_list = sorted(doc.termlist, key=lambda x: x[0], reverse=False)
-        vec = np.array([e[1] for e in sorted_list]).reshape(1, len(sorted_list))
-        vec /= norm(vec)
-        unit_vec = np.ones((1, len(sorted_list)))
-        unit_vec /= norm(unit_vec)
-        return cosine_similarity(vec, unit_vec)[0][0]
+        # sorted_list = sorted(doc.termlist, key=lambda x: x[0], reverse=False)
+        # vec = np.array([e[1] for e in sorted_list]).reshape(1, len(sorted_list))
+        # return cosine_similarity(vec, np.ones((1, len(sorted_list))))[0][0]
+        # vec = np.array([e[1] for e in doc.termlist]).reshape(1, len(doc.termlist)) 
+        # return cosine_similarity(vec, np.ones((1, len(doc.termlist))))[0][0]
+
+        # vec = np.array([e[1] for e in doc.termlist])
+        # qu = np.ones((len(doc.termlist),))
+        # dot_product = np.dot(vec, qu)
+        # norm_a = np.linalg.norm(vec)
+        # norm_b = np.linalg.norm(qu)
+        # return dot_product / (norm_a * norm_b)
+        # q_dict = defaultdict(float)
+        # t_dict = defaultdict(float)
+        # for q in doc.querys:
+        #     q_dict[q] += 1.0
+        # query_list = list(q_dict.keys())
+        # for term, score in doc.termlist:
+        #     t_dict[term] = score
+        # q_vec = np.array([q_dict[q] for q in query_list])
+        # t_list = []
+        # for q in query_list:
+        #     val = t_dict[q] if t_dict.get(q) != None else 0.0
+        #     t_list.append(val)
+        # t_vec = np.array(t_list)
+        t_dict = {k: v for k, v in doc.termlist}
+        q_list = list(set(doc.querys))
+        q_vec = np.array([doc.querys.count(q) for q in q_list])
+        t_vec = np.array([t_dict[q] if t_dict.get(q) != None else 0.0 for q in q_list])
+        dot_product = np.dot(q_vec, t_vec)
+        norm_q = np.linalg.norm(q_vec)
+        norm_t = np.linalg.norm(t_vec)
+        # print(q_dict)
+        # print(t_dict)
+        # print(dot_product)
+        # print(norm_q)
+        # print(norm_t)
+        # raise OSError
+        return dot_product / (norm_q * norm_t)
+
 
 class DB:
     def __init__(self, dir: str):
@@ -159,7 +203,7 @@ class DB:
             raw = f.read(length * self.line_size)
         for line in raw.splitlines():
             termid, docid, score = [e.strip() for e in line.split(",")]
-            result.append((docid, termid, float(score) * idf))
+            result.append((docid, w, float(score) * idf))
         result = sorted(result, key=lambda x: x[0], reverse=False)
         return result
 
@@ -182,7 +226,7 @@ class DB:
         else:
             return lo
         
-    def merge_lists(self, lists: [list]) -> [QueryDoc]:
+    def merge_lists(self, lists: [list], querys:[str]) -> [QueryDoc]:
         idx = 0
         result = []
         sorted_list = sorted(lists, key=lambda x: len(x), reverse=False)
@@ -198,23 +242,27 @@ class DB:
                     temp = []
                     if sub_idx != -1:
                         check_docid = sorted_list[i][sub_idx][0]
-                        idx = DB.binary_search(sorted_list[0], check_docid)
+                        temp_idx = DB.binary_search(sorted_list[0], check_docid)
+                        if temp_idx > idx:
+                            idx = temp_idx
+                        else:
+                            idx += 1
                     break
                 temp.append(tuple(sorted_list[i][sub_idx])[1:])            
 
             if len(temp) != 0:
-                result.append(QueryDoc(check_docid, temp))
+                result.append(QueryDoc(check_docid, temp, querys))
             idx += 1
 
         return result
 
     # return list of document in which multiple query words are
-    def select(self, querys: list, size=10) -> [str]:
+    def select(self, querys: list, size=50) -> [str]:
         result_list = []
-        for query in querys:
+        for query in set(querys):
             if self.term_dict.get(query) != None:
                 result_list.append(self.find(query))
-        merged = self.merge_lists(result_list)
+        merged = self.merge_lists(result_list, querys)
 
         min_heap = []
         for doc in merged:
@@ -223,5 +271,8 @@ class DB:
             else:
                 heapq.heappushpop(min_heap, doc)
         min_heap.sort()
-        print(min_heap)
+
+        for r in min_heap:
+            print("docid: {}, tf-idf sum: {:.4f}, cosine similarity: {:.4f}, rank score: {:.4f}".format(r.docid, r.cumulative, r.cosine_sim, r.score))
+
         return [self.doc_dict[doc.docid] for doc in min_heap]

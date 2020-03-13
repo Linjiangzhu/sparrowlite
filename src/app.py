@@ -15,7 +15,7 @@ def searchPageHandler():
     start = time.time()
     result = controller.getQuery(query)
     end = time.time()
-    query_time = round(end - start, 2)
+    query_time = int((end - start) * 1000)
     length = len(result)
     return render_template("search.html", query=query, result = result, length=length, query_time = query_time)
 
