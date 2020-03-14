@@ -5,8 +5,11 @@ This project is established for UCI CS121 final assignment
 src
 ├── app.py
 ├── build.py
+├── config.ini
 ├── controller.py
 ├── model.py
+├── packages
+│   └── requirements.txt
 ├── static
 │   ├── index.css
 │   ├── logo.png
@@ -16,6 +19,7 @@ src
 │   └── search.html
 └── util
     ├── indexBuilder.py
+    ├── simhashIndex.py
     └── textProcessor.py
 ```
 ## Goals and project progress
@@ -49,7 +53,7 @@ You need to specify where the source data directory and where to put processed d
 
 ```ini
 [DATABASE]
-WEBSITES_DIR = ../ANALYST/ # dir where your raw source files locate
+WEBSITES_DIR = ../DEV/ # dir where your raw source files locate, if you use built data file I provided, no need to change this one
 DATABASE_DIR = ../DATA/    # output dir of your data   
 MERGE_CHUNK  = YES         # do not change this line
 ```
