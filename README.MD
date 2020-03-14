@@ -27,11 +27,11 @@ src
 ### Stage 3
 - [x] token stemming
 - [x] weight of words in title,\<strong>, and heading
-- [ ] a complete search engine
-- [ ] less than 300ms response
+- [x] less than 300ms response
+- [x] a complete search engine
 ### Extra credit
-- [ ] duplicate and near duplicate pages
-- [ ] page rank
+- [x] duplicate and near duplicate pages
+- [x] page rank
 - [ ] 2-gram/3-gram indexing
 - [ ] posting with word position
 - [ ] anchor words
@@ -89,5 +89,6 @@ The program will listen and serve the application at localhost on port 3000. Vis
 - [x] flx disk seek difference on windows and mac/unix-like
 - [x] implement complex tuple intersection algorithm
 - [x] slow or false implementation of cosine similarity
-- [ ] use Simhash to remove near duplicates
+- [x] use Simhash to remove near duplicates
 - [x] fix "," ValueError when parsing docid csv
+- [x] implement inward and outward link graph

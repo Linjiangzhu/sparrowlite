@@ -1,6 +1,10 @@
-import os, sys, json, glob, pickle, heapq
+import os, sys, json, glob, pickle, heapq, pickle
+import numpy as np
 from collections import defaultdict
+from urllib.parse import urljoin
 from util.textProcessor import TextProcessor
+from util.simhashIndex import SimhashIndex
+
 
 class Posting:
     def __init__(self, val, fid):
@@ -101,12 +105,14 @@ class IIDXBuilder:
             os.mkdir(outdir)
         
         # initialize counters and buffer
+        doc_cnt = 0
         doc_id = 0
         chunk_idx = 0
         chunk_sum = 0
         root = self.dirpath
         buffer_dict = defaultdict(list)
         text_processor = TextProcessor()
+        simhash_idx = SimhashIndex()
         
         # prepare docid-path file and term-id file 
         doc_id_file = open(os.path.join(outdir, "docid"), "a+")
@@ -123,6 +129,18 @@ class IIDXBuilder:
 
                 # feed to text processor
                 text_processor.feed(raw)
+
+                # get the simhash index of the web page
+                page_simhash = text_processor.getSimHash()
+
+                # if hammine distance is less than 3, ignore this document
+                found_doc = simhash_idx.find(page_simhash)
+                doc_cnt += 1
+                if len(found_doc) == 0:
+                    simhash_idx.add(doc_id, page_simhash)
+                else:
+                    print("\r{:>6} files scanned, {:>6} files added".format(doc_cnt, doc_id), end="")
+                    continue
 
                 # get word-freq dict of this file
                 partial_dict = text_processor.getTokenDict()
@@ -159,7 +177,7 @@ class IIDXBuilder:
                 doc_id += 1
 
                 # progress bar
-                print(f"\r{doc_id} files scanned       ", end="")
+                print("\r{:>6} files scanned, {:>6} files added".format(doc_cnt, doc_id), end="")
 
         # if buffer dict has remainig items, writ to disk
         if len(buffer_dict.keys()) != 0:
@@ -168,3 +186,106 @@ class IIDXBuilder:
         #  safe close files
         doc_id_file.close()
         term_id_file.close()
+
+    @staticmethod
+    def write_partial_set(d, filepath):
+        with open(filepath, "w") as f:
+            for k, v in sorted(d.items(), key=lambda x: x[0], reverse=False):
+                for docid in sorted(v, key=lambda x: x, reverse=True):
+                    f.write("{:>6},{:>5}\n".format(k, docid))
+    
+    def build_graph(self, outdir):
+        cnt = 0
+        doc_id_dict = dict()
+        doc_id_to = dict()
+        with open(os.path.join(outdir, "docid"), "r") as f:
+            for line in f:
+                strip_l = line.strip()
+                split = strip_l.find(",")
+                k, v = strip_l[:split], strip_l[split + 1:]
+                    # k, v = line.strip().split(",")
+                doc_id_dict[v] = k
+                doc_id_to[k] = v
+    
+        root = self.dirpath
+        text_processor = TextProcessor()
+        graph = defaultdict(set)
+
+        for dir in os.listdir(root):
+            for file in glob.glob(f"{os.path.join(root, dir)}/*.json"):
+                with open(file, encoding="utf-8") as f:
+                    json_obj = json.load(f)
+                raw = json_obj["content"]
+                url = json_obj["url"]
+                if doc_id_dict.get(url) != None:
+                    links_list = text_processor.getlink(raw)
+                    for href, _ in links_list:
+                        link_addr = urljoin(url, href)
+                        if doc_id_dict.get(link_addr) != None:
+                                graph[doc_id_dict[url]].add(doc_id_dict[link_addr])
+                print("\r{:>6} files scanned".format(cnt), end="")
+                cnt += 1
+        
+        pickle.dump(graph, open(os.path.join(outdir, "graph"), "wb"))
+
+        docs = set()
+        for k, l in graph.items():
+            docs.add(k)
+            for v in l:
+                docs.add(v)
+        docs = sorted([i for i in docs], key=lambda x: int(x), reverse=False)
+        doc_to_idx = {docs[i]: i for i in range(len(docs))}
+        idx_to_docs = {i : docs[i] for i in range(len(docs))}
+
+        size = len(docs)
+        mtx = np.zeros((size, size))
+        for k, v in graph.items():
+            for c in v:
+                mtx[int(k)][int(c)] = 1
+        
+        m = np.shape(mtx)[0]
+        T = np.array(mtx, float)
+        del mtx
+        for i in range(m):
+            s = np.sum(T[i])
+            if s > 0:
+                T[i] /= s
+            else:
+                T[i, i] = 1
+
+        alpha = 0.2
+
+        B = np.ones((m,m)) / m
+        G = (1 - alpha) * T + alpha * B
+        del B
+        del T
+
+        pi0 = np.ones((m,)) / m
+        N = 100
+        prob = np.zeros((N + 1, m))
+        prob[0] = pi0
+        for i in range(1, N + 1):
+            prob[i] = np.matmul(prob[i-1], G)
+
+        epsilon = np.zeros((N,))
+        for i in range(1, N + 1):
+            epsilon[i-1] = np.absolute(prob[i] - prob[i - 1]).sum()
+
+        # indexes of page rank from high to low
+        rank_idx = np.argsort(prob[-1])[::-1]
+
+        # pagerank score from high to low
+        rank_val = prob[-1][rank_idx]
+
+        del G
+
+        np.save(os.path.join(outdir, "rank_idx"),rank_idx)
+        np.save(os.path.join(outdir, "rank_val"),rank_val)
+        np.save(os.path.join(outdir, "epsilon"),epsilon)
+
+        pagerank = {}
+        for i in range(len(rank_idx)):
+            pagerank[idx_to_docs[rank_idx[i]]] = rank_val[i]
+
+        # serialize and save docid-page_rank_score to local
+        pickle.dump(pagerank, open(os.path.join(outdir, "pagerank"), "wb"))

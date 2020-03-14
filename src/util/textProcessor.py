@@ -1,5 +1,4 @@
-import re
-import math
+import re, math, simhash, farmhash
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from collections import defaultdict
@@ -10,8 +9,10 @@ class TextProcessor:
         self.raw = ""
         self.text = ""
         self.token_dict = {}
+        self.simhash = 0
 
-    def isVisibleTag(self, element) -> bool:
+    @staticmethod
+    def isVisibleTag(element) -> bool:
         if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
             return False
         if isinstance(element, Comment):
@@ -24,47 +25,51 @@ class TextProcessor:
     
     @staticmethod
     def tokenize(s: str) -> list:
-        return re.findall(r"[a-zA-Z0-9']+", s)
-
-    def feed(self, content: str):
-        self.raw = content
-        self.token_dict = defaultdict(float)
-        soup = BeautifulSoup(self.raw, "html.parser")
-
-        # handle body text
-        ps = PorterStemmer()
+        soup = BeautifulSoup(s, "html.parser")
         visible_html = soup.findAll(text=True)
-        visible_text = filter(self.isVisibleTag, visible_html)
+        visible_text = filter(TextProcessor.isVisibleTag, visible_html)
+        w_list = []
         for t in visible_text:
             textContent = str(t).strip()
             if textContent != "":
                 for w in re.findall(r"[a-zA-Z0-9']+", textContent):
-                    self.token_dict[ps.stem(w.lower())] += 1
+                    w_list.append(w.lower())
+        return w_list
+
+    def feed(self, content: str):
+        soup = BeautifulSoup(content, "html.parser")
+        self.token_dict = defaultdict(float)
+        token_list = TextProcessor.tokenize(content)
+        self.simhash = self.computeSimHash(token_list)
+
+        ps = PorterStemmer()
+        for w in token_list:
+            self.token_dict[ps.stem(w)] += 1
         
         # handle strong
         for e in soup.find_all("strong"):
             for w in re.findall(r"[a-zA-Z0-9']+", e.get_text()):
-                self.token_dict[ps.stem(w.lower())] += 2
+                self.token_dict[ps.stem(w.lower())] += 10
 
         # handle h3
         for e in soup.find_all("h3"):
             for w in re.findall(r"[a-zA-Z0-9']+", e.get_text()):
-                self.token_dict[ps.stem(w.lower())] += 3
+                self.token_dict[ps.stem(w.lower())] += 10**2
 
         # handle h2
         for e in soup.find_all("h2"):
             for w in re.findall(r"[a-zA-Z0-9']+", e.get_text()):
-                self.token_dict[ps.stem(w.lower())] += 4
+                self.token_dict[ps.stem(w.lower())] += 10**3
 
         # handle h1
         for e in soup.find_all("h1"):
             for w in re.findall(r"[a-zA-Z0-9']+", e.get_text()):
-                self.token_dict[ps.stem(w.lower())] += 5
+                self.token_dict[ps.stem(w.lower())] += 10**4
 
         # handle title
         if soup.title != None and soup.title.string != None:
             for w in re.findall(r"[a-zA-Z0-9']+", soup.title.string):
-                self.token_dict[ps.stem(w.lower())] += 6
+                self.token_dict[ps.stem(w.lower())] += 10**5
 
         # calculate tf score
         for k, v in self.token_dict.items():
@@ -75,3 +80,33 @@ class TextProcessor:
 
     def getTokenDict(self) -> dict:
         return self.token_dict
+    
+    def computeSimHash(self, tokens) -> int:
+        shingles = [''.join(shingle) for shingle in simhash.shingle(''.join(tokens), 4)]
+        hashes = [farmhash.hash64(s) for s in shingles]
+        return simhash.compute(hashes)
+
+    def getSimHash(self) -> int:
+        return self.simhash
+    
+    def getlink(self, content) -> [(str, list)]:
+        soup = BeautifulSoup(content, "html.parser")
+        links = []
+        ps = PorterStemmer()
+        for link in soup.find_all('a'):
+            w_set = set()
+            href = link.get('href')
+            title = link.get('title')
+            inner_text = link.get_text()
+
+            if title != None:
+                for w in re.findall(r"[a-zA-Z0-9]+", title):
+                    w_set.add(ps.stem(w.lower()))
+            
+            if inner_text != None:
+                for w in re.findall(r"[a-zA-Z0-9]+", inner_text):
+                    w_set.add(ps.stem(w.lower()))
+            if href != None:
+                links.append((href, list(w_set)))
+        return links
+        

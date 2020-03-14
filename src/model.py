@@ -1,11 +1,27 @@
-import json, os, sys, heapq
+import json, os, sys, heapq, pickle
 import numpy as np
-from numpy.linalg import norm
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 from platform import system
 from collections import namedtuple, defaultdict
-from sklearn.metrics.pairwise import cosine_similarity
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 class PresentPage:
     def __init__(self, title: str, url: str, fpath: str, content: str):
@@ -29,7 +45,7 @@ class FileProcesser:
             return False
         return True
 
-    def feed(self, filepath: str):
+    def feed(self, filepath: str) -> None:
         self.title = ""
         self.url = ""
         self.content = ""
@@ -54,31 +70,27 @@ class FileProcesser:
     def getContent(self) -> str:
         return self.content
 
-# QueryDoc = namedtuple("QueryDoc", "docid termlist")
 class QueryDoc:
-    def __init__(self, docid: str, termlist: [(str, float)], querys: [str]):
+    def __init__(self, docid: str, termlist: [(str, float)], querys: [str], pagerank: float):
         self.docid = docid
         self.termlist = termlist
         self.querys = querys
+        self.page_rank = pagerank
         self.cosine_sim = QueryDoc.cal_cosine_similarity(self)
         self.cumulative = QueryDoc.cal_cumulate_score(self)
-        self.score = self.cumulative * self.cosine_sim
+        self.score = self.cumulative * self.cosine_sim * (self.page_rank * 50 + 2)
 
     def __lt__(self, other) -> bool:
-        # return QueryDoc.cal_cumulate_score(self) > QueryDoc.cal_cumulate_score(other)
-        # return QueryDoc.cal_cosine_similarity(self) > QueryDoc.cal_cosine_similarity(other)
-        # return self.cosine_sim > other.cosine_sim
-        # return np.tanh(self.cumulative) * self.cosine_sim > np.tanh(other.cumulative) * other.cosine_sim
         return self.score > other.score
     
     def __repr__(self) -> str:
-        return  "{" + "doc :{}, cumulative: {}, cosine sim: {}, rank score{}".format(
-            self.docid, QueryDoc.cal_cumulate_score(self), QueryDoc.cal_cosine_similarity(self), self.score
+        return  "{" + "doc :{:>6}, cumulative: {:.2f}, cosine sim: {:.2f}, page rank: {:.4e},  total score {:.2f}".format(
+            self.docid, self.cumulative, self.cosine_sim, self.page_rank, self.score
         ) + "}"
     
     def __str__(self) -> str:
-        return  "{" + "doc :{}, cumulative: {}, cosine sim: {}, rank score{}".format(
-            self.docid, QueryDoc.cal_cumulate_score(self), QueryDoc.cal_cosine_similarity(self), self.score
+        return  "{" + "doc :{:>6}, cumulative: {:.2f}, cosine sim: {:.2f}, page rank: {:.4e},  total score {:.2f}".format(
+            self.docid, self.cumulative, self.cosine_sim, self.page_rank, self.score
         ) + "}"
 
     @staticmethod
@@ -87,31 +99,7 @@ class QueryDoc:
 
     @staticmethod
     def cal_cosine_similarity(doc) -> float:
-        # sorted_list = sorted(doc.termlist, key=lambda x: x[0], reverse=False)
-        # vec = np.array([e[1] for e in sorted_list]).reshape(1, len(sorted_list))
-        # return cosine_similarity(vec, np.ones((1, len(sorted_list))))[0][0]
-        # vec = np.array([e[1] for e in doc.termlist]).reshape(1, len(doc.termlist)) 
-        # return cosine_similarity(vec, np.ones((1, len(doc.termlist))))[0][0]
 
-        # vec = np.array([e[1] for e in doc.termlist])
-        # qu = np.ones((len(doc.termlist),))
-        # dot_product = np.dot(vec, qu)
-        # norm_a = np.linalg.norm(vec)
-        # norm_b = np.linalg.norm(qu)
-        # return dot_product / (norm_a * norm_b)
-        # q_dict = defaultdict(float)
-        # t_dict = defaultdict(float)
-        # for q in doc.querys:
-        #     q_dict[q] += 1.0
-        # query_list = list(q_dict.keys())
-        # for term, score in doc.termlist:
-        #     t_dict[term] = score
-        # q_vec = np.array([q_dict[q] for q in query_list])
-        # t_list = []
-        # for q in query_list:
-        #     val = t_dict[q] if t_dict.get(q) != None else 0.0
-        #     t_list.append(val)
-        # t_vec = np.array(t_list)
         t_dict = {k: v for k, v in doc.termlist}
         q_list = list(set(doc.querys))
         q_vec = np.array([doc.querys.count(q) for q in q_list])
@@ -119,14 +107,8 @@ class QueryDoc:
         dot_product = np.dot(q_vec, t_vec)
         norm_q = np.linalg.norm(q_vec)
         norm_t = np.linalg.norm(t_vec)
-        # print(q_dict)
-        # print(t_dict)
-        # print(dot_product)
-        # print(norm_q)
-        # print(norm_t)
-        # raise OSError
-        return dot_product / (norm_q * norm_t)
 
+        return dot_product / (norm_q * norm_t)
 
 class DB:
     def __init__(self, dir: str):
@@ -140,55 +122,48 @@ class DB:
         self.seek_bock_size = 0
         self.line_size = 0
 
+        # load term-termid into a dict
         with open(os.path.join(self.dir, "termid"), "r") as f:
             for line in f:
                 k, v = line.strip().split(",")
                 self.term_dict[k] = v
 
+        # load docid-url into dict
         with open(os.path.join(self.dir, "docid"), "r") as f:
             for line in f:
                 strip_l = line.strip()
                 split = strip_l.find(",")
                 k, v = strip_l[:split], strip_l[split + 1:]
-                    # k, v = line.strip().split(",")
                 self.doc_dict[k] = v
-
+        # load term-(start, length) into dict
         with open(os.path.join(self.dir, "fidx.csv"), "r") as f:
             for line in f:
                 k, start, length = line.strip().split(",")
                 self.fidx[k] = (start, length)
-        
+
+        # get the fixed length from inverted index line
         with open(os.path.join(self.dir, "out.csv"), "r") as f:
             line = f.readline()
             self.line_size = len(line.encode("utf-8"))
         
+        # if file is build by windows, add 1 for carrage return
         self.seek_bock_size = self.line_size
         if system() == "Windows":
             self.seek_bock_size += 1
         
+        # load docid-page ranke, append to docid-url dict
+        page_rank = pickle.load(open(os.path.join(self.dir, "pagerank"), "rb"))
+        for docid, url in self.doc_dict.items():
+            if page_rank.get(docid) != None:
+                self.doc_dict[docid] = (url, page_rank[docid])
+            else:
+                self.doc_dict[docid] = (url, 1.0)
+        del page_rank
+
+        # pint information of data loada
         print(f"[Data Info]")
         print(f"term: {len(self.term_dict)}\ndoc:{len(self.doc_dict)}\n")
-        
 
-    # return list of document in which single query word is
-    def get(self, w: str) -> [str]:
-        term_idx = self.term_dict[w]
-        start, length = (int(self.fidx[term_idx][0]), int(self.fidx[term_idx][1]))
-        raw = ""
-        result = []
-        # print(start, length)
-        # print("line size:", self.line_size)
-        # print(self.line_size * start)
-        with open(os.path.join(self.dir, "out.csv"), "r") as f:
-            # f.seek(start * (self.line_size + 1))
-            f.seek(start * (self.line_size + 0))
-            raw = f.read(length * (self.line_size))
-
-        for line in raw.splitlines():
-            termid, docid, score = line.split(",")
-            result.append(self.doc_dict[docid.strip()])
-        return result
-    
     def find(self, w: str) -> [(str, str, float)]:
         if self.term_dict.get(w) == None:
             return []
@@ -225,8 +200,11 @@ class DB:
             return -1
         else:
             return lo
-        
+
+    # merge lists of documents        
     def merge_lists(self, lists: [list], querys:[str]) -> [QueryDoc]:
+        if len(lists) == 0:
+            return []
         idx = 0
         result = []
         sorted_list = sorted(lists, key=lambda x: len(x), reverse=False)
@@ -249,9 +227,7 @@ class DB:
                             idx += 1
                     break
                 temp.append(tuple(sorted_list[i][sub_idx])[1:])            
-
-            if len(temp) != 0:
-                result.append(QueryDoc(check_docid, temp, querys))
+                result.append(QueryDoc(check_docid, temp, querys, self.doc_dict[check_docid][1]))
             idx += 1
 
         return result
@@ -273,6 +249,5 @@ class DB:
         min_heap.sort()
 
         for r in min_heap:
-            print("docid: {}, tf-idf sum: {:.4f}, cosine similarity: {:.4f}, rank score: {:.4f}".format(r.docid, r.cumulative, r.cosine_sim, r.score))
-
-        return [self.doc_dict[doc.docid] for doc in min_heap]
+            print(r)
+        return [self.doc_dict[doc.docid][0] for doc in min_heap]
