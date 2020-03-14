@@ -37,7 +37,13 @@ src
 - [ ] anchor words
 - [x] Web or GUI interface
 ## Build and run
-Download the processed data files [from here](https://github.com/Linjiangzhu/sparrowlite/releases/download/0.0.1alpha/DATA.zip), unzip to the same directory where you place this project.
+Download the processed data files [from here](https://github.com/Linjiangzhu/sparrowlite/releases/download/0.0.2-alpha/DATA.zip), unzip to the same directory where you place this project. The file structure should be look like this:
+```
+sparrowlite
+├── src
+├── DATA <--drop it here
+└── README.MD
+```
 
 You need to specify where the source data directory and where to put processed data in `src/config.ini`
 
